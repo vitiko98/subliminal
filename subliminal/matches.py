@@ -161,7 +161,7 @@ def source_matches(video, source=None, **kwargs):
     :rtype: bool
 
     """
-    return video.source and source == video.source
+    return _handle_match(video, source, "source")
 
 
 def video_codec_matches(video, video_codec=None, **kwargs):
@@ -174,7 +174,7 @@ def video_codec_matches(video, video_codec=None, **kwargs):
     :rtype: bool
 
     """
-    return video.video_codec and video_codec == video.video_codec
+    return _handle_match(video, video_codec, "video_codec")
 
 
 def audio_codec_matches(video, audio_codec=None, **kwargs):
@@ -187,7 +187,19 @@ def audio_codec_matches(video, audio_codec=None, **kwargs):
     :rtype: bool
 
     """
-    return video.audio_codec and audio_codec == video.audio_codec
+    return _handle_match(video, audio_codec, "audio_codec")
+
+
+def _handle_match(video, value, key):
+    video_value = getattr(video, key)
+
+    if video_value is None:
+        return False
+
+    if isinstance(value, list):
+        return any(video_value in single for single in value)
+
+    return value == video_value
 
 
 #: Available matches functions
