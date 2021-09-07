@@ -15,6 +15,14 @@ except ImportError:
 from requests import Session
 from zipfile import ZipFile
 
+import re
+import ssl
+
+from urllib3 import poolmanager
+
+from requests import Session
+from requests.adapters import HTTPAdapter
+
 from . import Provider
 from ..cache import region, SUB_EXPIRATION_TIME
 from ..exceptions import ProviderError
@@ -62,6 +70,19 @@ class PodnapisiSubtitle(Subtitle):
         return matches
 
 
+class PodnapisiAdapter(HTTPAdapter):
+    def init_poolmanager(self, connections, maxsize, block=False):
+        ctx = ssl.create_default_context()
+        ctx.set_ciphers('DEFAULT@SECLEVEL=1')
+        self.poolmanager = poolmanager.PoolManager(
+                num_pools=connections,
+                maxsize=maxsize,
+                block=block,
+                ssl_version=ssl.PROTOCOL_TLS,
+                ssl_context=ctx
+        )
+
+
 class PodnapisiProvider(Provider):
     """Podnapisi Provider."""
     languages = ({Language('por', 'BR'), Language('srp', script='Latn')} |
@@ -75,6 +96,7 @@ class PodnapisiProvider(Provider):
     def initialize(self):
         self.session = Session()
         self.session.headers['User-Agent'] = self.user_agent
+        self.session.mount('https://', PodnapisiAdapter())
 
     def terminate(self):
         self.session.close()
