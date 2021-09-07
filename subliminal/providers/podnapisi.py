@@ -49,7 +49,7 @@ class PodnapisiSubtitle(Subtitle):
 
     @property
     def id(self):
-        return self.pid
+        return f"{self.pid}{self.info}"
 
     @property
     def info(self):

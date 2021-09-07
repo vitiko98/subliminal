@@ -49,7 +49,7 @@ class SuchaSubtitle(Subtitle):
 
     @property
     def id(self):
-        return self.download_id
+        return f"sucha_{self.download_id}"
 
     @property
     def info(self):

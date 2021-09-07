@@ -39,7 +39,7 @@ class ProviderPool(object):
         instantiating the :class:`~subliminal.providers.Provider`.
 
     """
-    def __init__(self, providers=None, provider_configs=None):
+    def __init__(self, providers=None, provider_configs=None, **kwargs):
         #: Name of providers to use
         self.providers = providers or default_providers
 
@@ -51,6 +51,8 @@ class ProviderPool(object):
 
         #: Discarded providers
         self.discarded_providers = set()
+
+        self.blacklist = kwargs.get("blacklist", [])
 
     def __enter__(self):
         return self
@@ -112,7 +114,8 @@ class ProviderPool(object):
         # list subtitles
         logger.info('Listing subtitles with provider %r and languages %r', provider, provider_languages)
         try:
-            return self[provider].list_subtitles(video, provider_languages)
+            subs = self[provider].list_subtitles(video, provider_languages)
+            return [sub for sub in subs if sub.id not in self.blacklist]
         except Exception as e:
             handle_exception(e, 'Provider {}'.format(provider))
 
