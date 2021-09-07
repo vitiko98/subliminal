@@ -16,6 +16,7 @@ from requests import Session
 from zipfile import ZipFile
 
 from . import Provider
+from ..cache import region, SUB_EXPIRATION_TIME
 from ..exceptions import ProviderError
 from ..matches import guess_matches
 from ..subtitle import Subtitle, fix_line_ending
@@ -78,6 +79,12 @@ class PodnapisiProvider(Provider):
     def terminate(self):
         self.session.close()
 
+    @region.cache_on_arguments(expiration_time=SUB_EXPIRATION_TIME)
+    def _get_results(self, params):
+        r = self.session.get(self.server_url + 'search/old', params=params, timeout=10)
+        r.raise_for_status()
+        return r.content
+
     def query(self, language, keyword, season=None, episode=None, year=None):
         # set parameters, see http://www.podnapisi.net/forum/viewtopic.php?f=62&t=26164#p212652
         params = {'sXML': 1, 'sL': str(language), 'sK': keyword}
@@ -95,9 +102,7 @@ class PodnapisiProvider(Provider):
         pids = set()
         while True:
             # query the server
-            r = self.session.get(self.server_url + 'search/old', params=params, timeout=10)
-            r.raise_for_status()
-            xml = etree.fromstring(r.content)
+            xml = etree.fromstring(self._get_results(params))
 
             # exit if no results
             if not int(xml.find('pagination/results').text):

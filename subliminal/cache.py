@@ -14,6 +14,9 @@ EPISODE_EXPIRATION_TIME = datetime.timedelta(days=3).total_seconds()
 #: Expiration time for scraper searches
 REFINER_EXPIRATION_TIME = datetime.timedelta(weeks=1).total_seconds()
 
+#: Expiration time for subtitle searches
+SUB_EXPIRATION_TIME = datetime.timedelta(weeks=1).total_seconds()
+
 
 def _to_native_str(value):
     if six.PY2:

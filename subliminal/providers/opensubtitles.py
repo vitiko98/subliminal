@@ -13,6 +13,8 @@ from . import Provider, TimeoutSafeTransport
 from .. import __short_version__
 from ..exceptions import (AuthenticationError, ConfigurationError, DownloadLimitExceeded, ProviderError,
                           ServiceUnavailable)
+
+from ..cache import region, SUB_EXPIRATION_TIME
 from ..matches import guess_matches
 from ..subtitle import Subtitle, fix_line_ending
 from ..video import Episode, Movie
@@ -141,6 +143,10 @@ class OpenSubtitlesProvider(Provider):
         logger.debug('No operation')
         checked(self.server.NoOperation(self.token))
 
+    @region.cache_on_arguments(expiration_time=SUB_EXPIRATION_TIME)
+    def _get_subtitles(self, criteria):
+        return checked(self.server.SearchSubtitles(self.token, criteria))
+
     def query(self, languages, hash=None, size=None, imdb_id=None, query=None, season=None, episode=None, tag=None):
         # fill the search criteria
         criteria = []
@@ -166,7 +172,7 @@ class OpenSubtitlesProvider(Provider):
 
         # query the server
         logger.info('Searching subtitles %r', criteria)
-        response = checked(self.server.SearchSubtitles(self.token, criteria))
+        response = self._get_subtitles(criteria)
         subtitles = []
 
         # exit if no data
