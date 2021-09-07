@@ -17,8 +17,8 @@ from . import Provider
 
 logger = logging.getLogger(__name__)
 
-server_url = "http://sapidb.caretas.club/"
-page_url = "https://sucha.caretas.club/"
+SERVER_URL = "http://sapidb.caretas.club"
+PAGE_URL = "https://sucha.caretas.club"
 
 
 class SuchaSubtitle(Subtitle):
@@ -35,7 +35,7 @@ class SuchaSubtitle(Subtitle):
         matches,
     ):
         super(SuchaSubtitle, self).__init__(
-            language, hearing_impaired=False, page_link=page_url
+            language, hearing_impaired=False, page_link=PAGE_URL
         )
         self.download_id = download_id
         self.download_type = download_type
@@ -50,6 +50,10 @@ class SuchaSubtitle(Subtitle):
     @property
     def id(self):
         return self.download_id
+
+    @property
+    def info(self):
+        return self.release_info
 
     def get_matches(self, video):
         self.found_matches |= guess_matches(
@@ -77,62 +81,57 @@ class SuchaProvider(Provider):
 
     def initialize(self):
         self.session = Session()
-        self.session.headers = {
-            "User-Agent": os.environ.get("SZ_USER_AGENT", "Sub-Zero/2")
-        }
+        self.session.headers.update(
+            {"User-Agent": os.environ.get("SZ_USER_AGENT", "Sub-Zero/2")}
+        )
 
     def terminate(self):
         self.session.close()
 
     def query(self, languages, video):
-        movie_year = video.year if video.year else "0"
+        movie_year = video.year or "0"
         is_episode = isinstance(video, Episode)
+        type_str = "episode" if is_episode else "movie"
         language = self.language_list[0]
+
         if is_episode:
-            q = {
-                "query": "{} S{:02}E{:02}".format(
-                    video.series, video.season, video.episode
-                )
-            }
+            q = {"query": f"{video.series} S{video.season:02}E{video.episode:02}"}
         else:
             q = {"query": video.title, "year": movie_year}
-        logger.debug("Searching subtitles: {}".format(q["query"]))
-        res = self.session.get(
-            server_url + ("episode" if is_episode else "movie"), params=q, timeout=10
-        )
-        res.raise_for_status()
-        result = res.json()
+
+        logger.debug(f"Searching subtitles: {q}")
+        result = self.session.get(f"{SERVER_URL}/{type_str}", params=q, timeout=10)
+        result.raise_for_status()
+
+        results = result.json()
+        if isinstance(results, dict):
+            logger.debug("No subtitles found")
+            return []
+
         subtitles = []
-        for i in result:
+        for item in results:
             matches = set()
-            try:
-                if (
-                    video.title.lower() in i["title"].lower()
-                    or video.title.lower() in i["alt_title"].lower()
-                ):
-                    matches.add("title")
-            except (AttributeError, TypeError):
-                logger.debug("No subtitles found")
-                return []
-            if is_episode:
-                if (
-                    q["query"].lower() in i["title"].lower()
-                    or q["query"].lower() in i["alt_title"].lower()
-                ):
-                    matches.add("title")
-                    matches.add("series")
-                    matches.add("season")
-                    matches.add("episode")
-                    matches.add("year")
-            if str(i["year"]) == video.year:
+            title = item.get("title", "").lower()
+            alt_title = item.get("alt_title", title).lower()
+
+            if any(video.title.lower() in item for item in (title, alt_title)):
+                matches.add("title")
+
+            if str(item["year"]) == video.year:
                 matches.add("year")
+
+            if is_episode and any(
+                q["query"].lower() in item for item in (title, alt_title)
+            ):
+                matches.update(("title", "series", "season", "episode", "year"))
+
             subtitles.append(
                 SuchaSubtitle(
                     language,
-                    i["release"],
-                    i["filename"],
-                    str(i["id"]),
-                    "episode" if is_episode else "movie",
+                    item["release"],
+                    item["filename"],
+                    str(item["id"]),
+                    type_str,
                     matches,
                 )
             )
@@ -176,7 +175,7 @@ class SuchaProvider(Provider):
     def download_subtitle(self, subtitle):
         logger.info("Downloading subtitle %r", subtitle)
         response = self.session.get(
-            server_url + "download",
+            f"{SERVER_URL}/download",
             params={"id": subtitle.download_id, "type": subtitle.download_type},
             timeout=10,
         )
