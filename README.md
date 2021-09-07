@@ -1,8 +1,4 @@
 Subliminal-sucha
 ==========
 
-This is a fork of Subliminal with [Sucha](https://sucha.caretas.club/)'s API integration, which improves efficacy in score matching with spanish subtitles.
-
-## Command example
-
-`subliminal download VIDEO.mkv -p sucha -l es`
+This is a fork of Subliminal with some extra features and arbitrary modifications for personal use.
